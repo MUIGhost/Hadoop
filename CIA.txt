@@ -1,0 +1,490 @@
+﻿BDA ASSIGNMENTS (Ubuntu)
+
+
+Assignment 2: Copy files into and out of the Hadoop Distributed File System (HDFS)
+
+
+* start-dfs.sh
+* jps
+* hdfs dfs -ls /
+* hdfs dfs -mkdir /testdir
+
+
+Make a .txt file named as example.txt in document folder write smtg in it and save it 
+
+
+* hdfs dfs -put ~/Documents/example.txt /testdir
+* hdfs dfs -ls /testdir
+* hdfs dfs -cat /testdir/example.txt
+* hdfs dfs -get /testdir/example.txt ~/Downloads/
+
+
+Now you’ll get to see the file being directly copied into your downloads folder
+
+
+https://chatgpt.com/share/67419123-9a28-800d-927b-54a291784e1c
+
+
+—---------------------------------------------------------------------------------------------------------
+
+
+Assignment 3: Word count using map reduce
+
+
+* start-dfs.sh
+start-yarn.sh
+* Jps
+* echo -e "hello world\nhello Hadoop\nhello mapreduce\nhello hadoop mapreduce" > input.txt
+* hadoop fs -mkdir /user/hadoop/input
+* hadoop fs -put input.txt /user/hadoop/input
+
+
+In Documents folder make a new folder and name it as ass2
+Now navigate to text editor and paste the below code 
+
+
+import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.io.IntWritable;
+import org.apache.hadoop.io.Text;
+import org.apache.hadoop.mapreduce.Job;
+import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
+import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
+import org.apache.hadoop.mapreduce.Mapper;
+import org.apache.hadoop.mapreduce.Reducer;
+
+
+import java.io.IOException;
+
+
+public class WordCount {
+
+
+    public static class TokenizerMapper extends Mapper<Object, Text, Text, IntWritable> {
+        private final static IntWritable one = new IntWritable(1);
+        private Text word = new Text();
+
+
+        public void map(Object key, Text value, Context context) throws IOException, InterruptedException {
+            String[] words = value.toString().split("\\s+");
+            for (String wordText : words) {
+                word.set(wordText);
+                context.write(word, one);
+            }
+        }
+    }
+
+
+    public static class IntSumReducer extends Reducer<Text, IntWritable, Text, IntWritable> {
+        private IntWritable result = new IntWritable();
+
+
+        public void reduce(Text key, Iterable<IntWritable> values, Context context) throws IOException, InterruptedException {
+            int sum = 0;
+            for (IntWritable val : values) {
+                sum += val.get();
+            }
+            result.set(sum);
+            context.write(key, result);
+        }
+    }
+
+
+    public static void main(String[] args) throws Exception {
+        Configuration conf = new Configuration();
+        Job job = Job.getInstance(conf, "word count");
+        job.setJarByClass(WordCount.class);
+        job.setMapperClass(TokenizerMapper.class);
+        job.setCombinerClass(IntSumReducer.class);
+        job.setReducerClass(IntSumReducer.class);
+        job.setOutputKeyClass(Text.class);
+        job.setOutputValueClass(IntWritable.class);
+        FileInputFormat.addInputPath(job, new Path(args[0]));
+        FileOutputFormat.setOutputPath(job, new Path(args[1]));
+        System.exit(job.waitForCompletion(true) ? 0 : 1);
+    }
+}
+
+
+
+
+Now, save this file in ass2 folder inside Documents and give it a name as WordCount.java
+
+
+* cd /home/ubuntu/Documents/ass2
+* javac -classpath $(hadoop classpath) -d /home/ubuntu/Documents/ass2 WordCount.java
+* jar -cvf wordcount.jar -C /home/ubuntu/Documents/ass2/ .
+* hadoop jar wordcount.jar WordCount /user/hadoop/input /user/hadoop/output
+* hadoop fs -cat /user/hadoop/output/part-r-00000
+
+
+
+
+https://chatgpt.com/share/6741a9ed-3344-800d-9475-ad9075e9daf8
+
+
+—------------------------------------------------------------------------------------------------------------------
+
+
+Assignment 4: Postgress shell practice queries
+
+
+* sudo -i -u postgres
+* psql
+* create database emp
+* \c emp
+
+
+CREATE TABLE employees (
+    employee_id SERIAL PRIMARY KEY,
+    first_name VARCHAR(50),
+    last_name VARCHAR(50),
+    job_title VARCHAR(100),
+    hire_date DATE
+);
+
+
+INSERT INTO employees (first_name, last_name, job_title, hire_date)
+VALUES
+    ('John', 'Doe', 'Software Engineer', '2020-01-15'),
+    ('Jane', 'Smith', 'Product Manager', '2019-11-02'),
+    ('Emily', 'Davis', 'UX Designer', '2021-05-18');
+
+
+SELECT * FROM employees;
+
+
+SELECT * FROM employees WHERE job_title = 'Software Engineer';
+
+
+UPDATE employees
+SET job_title = 'Senior Software Engineer'
+WHERE employee_id = 1;
+
+
+DELETE FROM employees WHERE employee_id = 2;
+
+
+SELECT * FROM employees;
+
+
+https://chatgpt.com/share/6741b175-5e18-800d-897e-b409c896766d
+
+
+—------------------------------------------------------------------------------------------------------------------
+
+
+Assignment 5: Read and write text files to HDFS with Spark
+
+
+* start-dfs.sh
+* jps
+* hdfs dfs -mkdir /spark-input
+hdfs dfs -mkdir /spark-output
+* echo "Hello, Hadoop and Spark!" > localfile.txt
+echo "Learning HDFS read and write operations." >> localfile.txt
+echo "Spark is amazing!" >> localfile.txt
+* cat localfile.txt
+* hdfs dfs -put localfile.txt /spark-input/
+* hdfs dfs -ls /spark-input/
+hdfs dfs -cat /spark-input/localfile.txt
+
+
+Open another terminal side by side
+
+
+* nano ~/.bashrc
+export SPARK_HOME=/opt/spark
+export PATH=$SPARK_HOME/bin:$PATH
+
+
+* source ~/.bashrc
+* spark-shell --version
+* spark-shell --master yarn
+
+
+Now you’ll be in spark i.e in scala 
+
+
+* val inputRDD = sc.textFile("hdfs://localhost:9000/spark-input/localfile.txt")
+inputRDD.foreach(println)
+
+
+* val outputRDD = inputRDD.map(line => line.toUpperCase)
+outputRDD.saveAsTextFile("hdfs://localhost:9000/spark-output/uppercase")
+
+
+Now Back to the previous terminal
+
+
+* hdfs dfs -ls /spark-output/uppercase
+hdfs dfs -cat /spark-output/uppercase/part-00000
+
+
+https://chatgpt.com/share/6741c367-ddc8-800d-be4d-6bab5a7e4cc2
+
+
+—------------------------------------------------------------------------------------------------------------------
+
+
+Assignment 6: Perform Word Count with Spark Python
+
+
+First create a txt file named example.text and write anything you want in it and save it
+
+
+* Open terminal and type pyspark
+* words = sc.textFile("file:///home/ubuntu/Documents/example.txt").flatMap(lambda line:line.split(" "))
+* a=words.map(lambda word: (word, 1))
+* b=a.reduceByKey(lambda a,b:a+b)
+* b.collect()
+
+
+—------------------------------------------------------------------------------------------------------------------
+
+
+Assignment 7: Access Postgres database tables with Spark SQL
+
+
+* sudo -u postgres psql
+* CREATE DATABASE my_database;
+* \c my_database;
+
+
+CREATE TABLE employees (
+    id SERIAL PRIMARY KEY,
+    first_name VARCHAR(50),
+    last_name VARCHAR(50),
+    age INT,
+    department VARCHAR(50)
+);
+
+
+
+
+INSERT INTO employees (first_name, last_name, age, department) 
+VALUES 
+('John', 'Doe', 30, 'HR'),
+('Jane', 'Smith', 25, 'Marketing'),
+('Alice', 'Johnson', 35, 'IT'),
+('Bob', 'Brown', 28, 'Finance'),
+('Charlie', 'Davis', 40, 'Sales');
+
+
+SELECT * FROM employees;
+
+
+Now, create a new terminal alongside 
+
+
+* spark-shell --master yarn
+* then,
+val jdbcUrl = "jdbc:postgresql://localhost:5432/my_database"
+val connectionProperties = new java.util.Properties()
+connectionProperties.put("user", "postgres")
+connectionProperties.put("password", "ubuntu")
+val df = spark.read.jdbc(jdbcUrl, "employees", connectionProperties)
+df.show()
+* Then,
+
+
+df.createOrReplaceTempView("example_table_view")
+val resultDf = spark.sql("SELECT * FROM example_table_view WHERE age > 25")
+resultDf.show()
+
+
+—------------------------------------------------------------------------------------------------------------------
+
+
+Assignment 8: Filter rows and columns of a Spark Data Frame
+
+
+* pyspark
+* from pyspark.sql import SparkSession
+
+
+* spark = SparkSession.builder.appName("FilterDataFrame").getOrCreate()
+
+
+data = [
+    (1, "Alice", 29, "New York"),
+    (2, "Bob", 35, "San Francisco"),
+    (3, "Cathy", 25, "Los Angeles"),
+    (4, "David", 40, "Chicago")
+]
+
+
+columns = ["ID", "Name", "Age", "City"]
+
+
+* df = spark.createDataFrame(data, columns)
+
+
+* print("Original DataFrame:")
+df.show()
+
+
+* filtered_rows = df.filter(df.Age > 30)
+
+
+* print("Filtered Rows (Age > 30):")
+filtered_rows.show()
+
+
+* selected_columns = df.select("Name", "City")
+
+
+* print("Selected Columns (Name and City):")
+* selected_columns.show()
+
+
+* filtered_and_selected = df.filter(df.Age > 30).select("Name", "City")
+
+
+* print("Filtered and Selected Columns (Age > 30):")
+* filtered_and_selected.show()
+
+
+https://chatgpt.com/share/6741e28c-7574-800d-81b9-61d90c9db464
+
+
+—------------------------------------------------------------------------------------------------------------------
+
+
+Assignment 9: Group and perform aggregate functions on columns in a Spark Data Frame
+
+
+* pyspark
+* from pyspark.sql import SparkSession
+from pyspark.sql.functions import avg, max, min, count, sum
+
+
+* spark = SparkSession.builder \
+   .appName("GroupBy and Aggregates") \
+   .getOrCreate()
+
+
+
+
+* data = [
+    ("Alice", "Sales", 3000),
+    ("Bob", "Sales", 4000),
+    ("Cathy", "HR", 3500),
+    ("David", "HR", 4500),
+    ("Eve", "Finance", 5000),
+    ("Frank", "Finance", 6000)
+]
+
+
+
+
+columns = ["Employee", "Department", "Salary"]
+
+
+
+
+* df = spark.createDataFrame(data, columns)
+
+
+
+
+* print("Original DataFrame:")
+df.show()
+
+
+
+
+* result = df.groupBy("Department").agg(
+    avg("Salary").alias("Average_Salary"),
+    max("Salary").alias("Max_Salary"),
+    min("Salary").alias("Min_Salary"),
+    count("Employee").alias("Employee_Count"),
+    sum("Salary").alias("Total_Salary")
+)
+
+
+
+
+* print("Aggregated DataFrame:")
+result.show()
+
+
+* spark.stop()
+
+
+https://chatgpt.com/share/6741e636-2504-800d-b4b9-dcceb1e1db75
+
+
+—------------------------------------------------------------------------------------------------------------------
+
+
+Assignment 10: Join two Spark Data frames on a single column
+
+
+* pyspark
+* from pyspark.sql import SparkSession
+
+
+* spark = SparkSession.builder \
+    .appName("SparkSQLJoinExample") \
+    .getOrCreate()
+
+
+
+
+* data1 = [
+    (1, "Alice"),
+    (2, "Bob"),
+    (3, "Cathy")
+]
+columns1 = ["id", "name"]
+
+
+* data2 = [
+    (1, "Physics"),
+    (2, "Chemistry"),
+    (4, "Biology")
+]
+columns2 = ["id", "subject"]
+
+
+* df1 = spark.createDataFrame(data1, columns1)
+* df2 = spark.createDataFrame(data2, columns2)
+
+
+
+
+* df1.createOrReplaceTempView("table1")
+* df2.createOrReplaceTempView("table2")
+
+
+* print("Table 1:")
+* spark.sql("SELECT * FROM table1").show()
+
+
+* print("Table 2:")
+* spark.sql("SELECT * FROM table2").show()
+
+
+
+
+* result = spark.sql("""
+    SELECT t1.id, t1.name, t2.subject
+    FROM table1 t1
+    JOIN table2 t2
+    ON t1.id = t2.id
+""")
+
+
+* print("Joined Table:")
+* result.show()
+
+
+https://chatgpt.com/share/6741e650-4580-800d-8fa7-4974bf2ce34b
+
+
+—------------------------------------------------------------------------------------------------------------------
+Remember its Darwinism, love. Don't got to be the fastest, just not the slowest.
+
+
+~ Coded by Shriyog More
